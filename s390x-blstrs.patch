@@ -1,0 +1,40 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 5f9059e..3963cbc 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -35,3 +35,6 @@ default = ["serde"]
+ portable = ["blst/portable"]
+ gpu = ["ec-gpu"]
+ __private_bench = []
++
++[patch.crates-io]
++blst = { path = "../blst/bindings/rust" }
+diff --git a/src/lib.rs b/src/lib.rs
+index 1c23744..1395ceb 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -6,8 +6,8 @@
+ #![allow(clippy::many_single_char_names)]
+ #![allow(clippy::wrong_self_convention)]
+ 
+-#[cfg(not(target_endian = "little"))]
+-compile_error!("blstrs is only supported on little endian architectures");
++#[cfg(all(target_endian = "big", target_pointer_width = "32"))]
++compile_error!("blstrs is not supported on 32-bit big endian architectures");
+ 
+ #[macro_use]
+ mod macros;
+diff --git a/src/scalar.rs b/src/scalar.rs
+index d5c7141..223fcc4 100644
+--- a/src/scalar.rs
++++ b/src/scalar.rs
+@@ -552,6 +552,9 @@ impl Scalar {
+     pub fn to_bytes_le(&self) -> [u8; 32] {
+         let mut out = [0u64; 4];
+         unsafe { blst_uint64_from_fr(out.as_mut_ptr(), &self.0) };
++        for x in &mut out {
++            *x = x.to_le();
++        }
+         out.as_byte_slice().try_into().unwrap()
+     }
+ 

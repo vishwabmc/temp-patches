@@ -1,0 +1,55 @@
+diff --git a/bindings/rust/build.rs b/bindings/rust/build.rs
+index ad1338f..0b6e6a6 100644
+--- a/bindings/rust/build.rs
++++ b/bindings/rust/build.rs
+@@ -116,7 +116,11 @@ fn main() {
+         .flag_if_supported("-Wno-unused-function")
+         .flag_if_supported("-Wno-unused-command-line-argument");
+     if !cfg!(debug_assertions) {
+-        cc.opt_level(2);
++        if target_arch.eq("s390x") {
++            cc.opt_level(3);
++        } else {
++            cc.opt_level(2);
++        }
+     }
+     cc.files(&file_vec).compile("libblst.a");
+ 
+diff --git a/src/no_asm.h b/src/no_asm.h
+index 4f12f53..59e4926 100644
+--- a/src/no_asm.h
++++ b/src/no_asm.h
+@@ -6,6 +6,8 @@
+ 
+ #if LIMB_T_BITS==32
+ typedef unsigned long long llimb_t;
++#else
++typedef unsigned __int128 llimb_t;
+ #endif
+ 
+ #if defined(__clang__)
+diff --git a/src/vect.h b/src/vect.h
+index 11b5836..1788cfc 100644
+--- a/src/vect.h
++++ b/src/vect.h
+@@ -18,7 +18,7 @@ typedef unsigned long long limb_t;
+ typedef unsigned __int64 limb_t;
+ # define LIMB_T_BITS    64
+ 
+-#elif defined(__BLST_NO_ASM__) || defined(__wasm64__)
++#elif defined(__wasm64__)
+ typedef unsigned int limb_t;
+ # define LIMB_T_BITS    32
+ # ifndef __BLST_NO_ASM__
+@@ -31,8 +31,10 @@ typedef unsigned long limb_t;
+ #   define LIMB_T_BITS   64
+ #  else
+ #   define LIMB_T_BITS   32
+-#   define __BLST_NO_ASM__
+ #  endif
++# ifndef __BLST_NO_ASM__
++#  define __BLST_NO_ASM__
++# endif
+ #endif
+ 
+ /*

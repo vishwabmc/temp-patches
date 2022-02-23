@@ -1,0 +1,100 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 0ae193df..0a8ff70d 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -12,3 +12,8 @@ members = [
+   "filecoin-hashers",
+   "storage-proofs-update",
+ ]
++
++[patch.crates-io]
++blst = { path = "../blst/bindings/rust" }
++blstrs = { path = "../blstrs" }
++sha2-asm = { path = "../asm-hashes/sha2" }
+diff --git a/fr32/src/reader.rs b/fr32/src/reader.rs
+index 78ea9239..84cca212 100644
+--- a/fr32/src/reader.rs
++++ b/fr32/src/reader.rs
+@@ -49,11 +49,13 @@ macro_rules! process_fr {
+         $out1:expr,
+         $bit_offset:expr
+     ) => {{
+-        $out0 = $in_buffer[0] >> 128 - $bit_offset;
+-        $out0 |= $in_buffer[1] << $bit_offset;
+-        $out1 = $in_buffer[1] >> 128 - $bit_offset;
+-        $out1 |= $in_buffer[2] << $bit_offset;
+-        $out1 &= MASK_SKIP_HIGH_2; // zero high 2 bits
++        $out0 = u128::from_le($in_buffer[0]) >> 128 - $bit_offset;
++        $out0 |= u128::from_le($in_buffer[1]) << $bit_offset;
++        $out0 = u128::to_le($out0);
++        $out1 = u128::from_le($in_buffer[1]) >> 128 - $bit_offset;
++        $out1 |= u128::from_le($in_buffer[2]) << $bit_offset;
++        $out1 = u128::to_le($out1);
++        $out1 &= u128::to_le(MASK_SKIP_HIGH_2); // zero high 2 bits
+     }};
+ }
+ 
+@@ -87,7 +89,7 @@ impl<R: Read> Fr32Reader<R> {
+         // 0..254
+         {
+             out[0] = in_buffer[0];
+-            out[1] = in_buffer[1] & MASK_SKIP_HIGH_2;
++            out[1] = in_buffer[1] & u128::to_le(MASK_SKIP_HIGH_2);
+         }
+         // 254..508
+         process_fr!(&in_buffer[1..], out[2], out[3], 2);
+diff --git a/storage-proofs-porep/src/stacked/vanilla/create_label/multi.rs b/storage-proofs-porep/src/stacked/vanilla/create_label/multi.rs
+index dc7641e3..786eb994 100644
+--- a/storage-proofs-porep/src/stacked/vanilla/create_label/multi.rs
++++ b/storage-proofs-porep/src/stacked/vanilla/create_label/multi.rs
+@@ -85,12 +85,12 @@ fn fill_buffer(
+         // which we know is not ready and will be filled in the main loop
+         for k in 0..BASE_DEGREE - 1 {
+             unsafe {
+-                if cur_parent[0] as u64 >= parents_cache.get_consumer() {
++                if u32::from_le(cur_parent[0]) as u64 >= parents_cache.get_consumer() {
+                     // Node is not ready
+                     base_parent_missing.set(k);
+                 } else {
+                     let parent_data = {
+-                        let offset = cur_parent[0] as usize * NODE_WORDS;
++                        let offset = u32::from_le(cur_parent[0]) as usize * NODE_WORDS;
+                         &layer_labels.as_slice()[offset..offset + NODE_WORDS]
+                     };
+                     let a = SHA_BLOCK_SIZE + (NODE_SIZE * k);
+@@ -112,7 +112,7 @@ fn fill_buffer(
+         // Read from each of the expander parent nodes
+         for k in BASE_DEGREE..DEGREE {
+             let parent_data = unsafe {
+-                let offset = cur_parent[0] as usize * NODE_WORDS;
++                let offset = u32::from_le(cur_parent[0]) as usize * NODE_WORDS;
+                 &exp_labels.as_slice()[offset..offset + NODE_WORDS]
+             };
+             let a = SHA_BLOCK_SIZE + (NODE_SIZE * k);
+@@ -304,7 +304,7 @@ fn create_layer_labels(
+         // Fix endianess
+         cur_node_ptr[..8].iter_mut().for_each(|x| *x = x.to_be());
+ 
+-        cur_node_ptr[7] &= 0x3FFF_FFFF; // Strip last two bits to ensure in Fr
++        cur_node_ptr[7] &= u32::to_le(0x3FFF_FFFF); // Strip last two bits to ensure in Fr
+ 
+         // Keep track of which node slot in the ring_buffer to use
+         let mut cur_slot = 0;
+@@ -349,7 +349,7 @@ fn create_layer_labels(
+                     let bpm = unsafe { base_parent_missing.get(cur_slot) };
+                     if bpm.get(k) {
+                         let source = unsafe {
+-                            let start = cur_parent_ptr[0] as usize * NODE_WORDS;
++                            let start = u32::from_le(cur_parent_ptr[0]) as usize * NODE_WORDS;
+                             let end = start + NODE_WORDS;
+                             &layer_labels.as_slice()[start..end]
+                         };
+@@ -410,7 +410,7 @@ fn create_layer_labels(
+                 // Fix endianess
+                 cur_node_ptr[..8].iter_mut().for_each(|x| *x = x.to_be());
+ 
+-                cur_node_ptr[7] &= 0x3FFF_FFFF; // Strip last two bits to fit in Fr
++                cur_node_ptr[7] &= u32::to_le(0x3FFF_FFFF); // Strip last two bits to fit in Fr
+ 
+                 // Safety:
+                 // It's possible that this increment will trigger moving the cache window.

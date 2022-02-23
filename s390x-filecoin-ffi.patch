@@ -1,0 +1,18 @@
+diff --git a/rust/Cargo.toml b/rust/Cargo.toml
+index 0146f10..39a288a 100644
+--- a/rust/Cargo.toml
++++ b/rust/Cargo.toml
+@@ -57,3 +57,13 @@ blst-portable = ["bls-signatures/blst-portable", "blstrs/portable"]
+ opencl = ["filecoin-proofs-api/opencl", "bellperson/opencl", "storage-proofs-porep/opencl", "rust-gpu-tools/opencl"]
+ cuda = ["filecoin-proofs-api/cuda", "bellperson/cuda", "storage-proofs-porep/cuda", "rust-gpu-tools/cuda"]
+ multicore-sdr = ["storage-proofs-porep/multicore-sdr"]
++
++[patch.crates-io]
++blst = { path = "../../../../blst/bindings/rust" }
++blstrs = { path = "../../../../blstrs" }
++sha2-asm = { path = "../../../../asm-hashes/sha2" }
++sha2raw = { path = "../../../../rust-fil-proofs/sha2raw" }
++fr32 = { path = "../../../../rust-fil-proofs/fr32" }
++filecoin-hashers = { path = "../../../../rust-fil-proofs/filecoin-hashers" }
++storage-proofs-core = { path = "../../../../rust-fil-proofs/storage-proofs-core" }
++storage-proofs-porep = { path = "../../../../rust-fil-proofs/storage-proofs-porep" }
